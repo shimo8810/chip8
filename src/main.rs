@@ -1,5 +1,3 @@
-use std::{ops::DivAssign, os::unix::prelude::OpenOptionsExt, panic};
-
 #[derive(Debug)]
 struct Chip8 {
     registers: [u8; 16],
