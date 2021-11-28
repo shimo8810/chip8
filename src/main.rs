@@ -1,33 +1,46 @@
 #[derive(Debug)]
 struct Chip8 {
-    registers: [u8; 16],
-    program_counter: usize,
-    memory: [u8; 4096],
+    /// general purpose v (8-bit, x16)
+    v: [u8; 16],
+    /// memory address register (16-bit)
+    i: u16,
+    /// program counter (16-bit)
+    pc: u16,
+    /// stack pointer (8-bit)
+    sp: u8,
+    /// stack (16-bit, x16)
     stack: [u16; 16],
-    stack_pointer: usize,
+    /// memory
+    mem: [u8; 4096],
 }
 
+#[allow(unused_variables)]
 impl Chip8 {
     fn new() -> Self {
         Chip8 {
-            registers: [0u8; 16],
-            program_counter: 0,
-            memory: [0u8; 4096],
+            v: [0u8; 16],
+            i: 0,
+            pc: 0,
+            mem: [0u8; 4096],
             stack: [0u16; 16],
-            stack_pointer: 0,
+            sp: 0,
         }
     }
 
     fn run(&mut self) {
-        //
-        let opcode = 0x8124u16;
+        // fetch
+        let op1 = self.mem[self.pc as usize] as u16;
+        let op2 = self.mem[self.pc as usize + 1] as u16;
+        let opcode = op1 << 8 | op2;
 
+        // operand
         let addr = opcode & 0x0FFF;
         let byte = (opcode & 0x00FF) as u8;
         let nibble = (opcode & 0x000F) as u8;
         let x = ((opcode & 0x0F00) >> 8) as u8;
         let y = ((opcode & 0x00F0) >> 4) as u8;
 
+        // decode and execute
         match (
             ((opcode & 0xF000) >> 12) as u8,
             ((opcode & 0x0F00) >> 8) as u8,
@@ -86,41 +99,41 @@ impl Chip8 {
     /// jump to location nnn.
     /// opcode: 1nnn
     fn jp_addr(&mut self, addr: u16) {
-        self.program_counter = addr as usize;
+        self.pc = addr;
     }
 
     /// call subroutine at nnn
     /// opcode: 2nnn
     fn call(&mut self, addr: u16) {
-        if self.stack_pointer >= self.stack.len() {
+        if self.sp as usize >= self.stack.len() {
             panic!("stack overflow");
         }
-        self.stack[self.stack_pointer] = self.program_counter as u16;
-        self.stack_pointer += 1;
-        self.program_counter = addr as usize;
+        self.stack[self.sp as usize] = self.pc as u16;
+        self.sp += 1;
+        self.pc = addr;
     }
 
     /// skip next instruction if vx == kk
     /// opcode: 3xkk
     fn se_vx_byte(&mut self, x: u8, byte: u8) {
-        if self.registers[x as usize] == byte {
-            self.program_counter += 2;
+        if self.v[x as usize] == byte {
+            self.pc += 2;
         }
     }
 
     /// skip next instruction if vx != kk
     /// 4xkk
     fn sne_vx_byte(&mut self, x: u8, byte: u8) {
-        if self.registers[x as usize] != byte {
-            self.program_counter += 2;
+        if self.v[x as usize] != byte {
+            self.pc += 2;
         }
     }
 
     /// skip next instruction if vx == vy
     /// opcode: 5xy0
     fn se_vx_vy(&mut self, x: u8, y: u8) {
-        if self.registers[x as usize] == self.registers[y as usize] {
-            self.program_counter += 2;
+        if self.v[x as usize] == self.v[y as usize] {
+            self.pc += 2;
         }
     }
 
@@ -137,42 +150,42 @@ impl Chip8 {
     /// set vx = vy
     /// opcode: 8xy0
     fn ld_vx_vy(&mut self, x: u8, y: u8) {
-        self.registers[x as usize] = self.registers[y as usize];
+        self.v[x as usize] = self.v[y as usize];
     }
 
     /// set vx = vx or vy
     /// opcode: 8xy1
     fn or(&mut self, x: u8, y: u8) {
-        self.registers[x as usize] |= self.registers[y as usize];
+        self.v[x as usize] |= self.v[y as usize];
     }
 
     /// set vx = vx and vy
     /// opcode: 8xy2
     fn and(&mut self, x: u8, y: u8) {
-        self.registers[x as usize] &= self.registers[y as usize];
+        self.v[x as usize] &= self.v[y as usize];
     }
 
     /// set vx = vx xor vy
     /// opcode: 8xy3
     fn xor(&mut self, x: u8, y: u8) {
-        self.registers[x as usize] ^= self.registers[y as usize];
+        self.v[x as usize] ^= self.v[y as usize];
     }
 
     /// set vx = vx + vy, set vf = carry
     /// opcode: 8xy4
     fn add_vx_vy(&mut self, x: u8, y: u8) {
-        let (v, flag) = self.registers[x as usize].overflowing_add(self.registers[y as usize]);
-        self.registers[x as usize] = v;
-        self.registers[0xf] = if flag { 1 } else { 0 };
+        let (v, flag) = self.v[x as usize].overflowing_add(self.v[y as usize]);
+        self.v[x as usize] = v;
+        self.v[0xf] = if flag { 1 } else { 0 };
     }
 
     /// set vx = vx - vy, set vf = not borrow
     /// opcode: 8xy5
     fn sub(&mut self, x: u8, y: u8) {
-        let (v, flag) = self.registers[x as usize].overflowing_sub(self.registers[y as usize]);
-        self.registers[x as usize] = v;
+        let (v, flag) = self.v[x as usize].overflowing_sub(self.v[y as usize]);
+        self.v[x as usize] = v;
         // MEMO: 等しいときのフラグに誤り?
-        self.registers[0xf] = if flag { 0 } else { 1 };
+        self.v[0xf] = if flag { 0 } else { 1 };
     }
 
     /// set vx = vx shr 1
@@ -261,12 +274,12 @@ impl Chip8 {
         todo!("opcode Fx33");
     }
 
-    /// store registers vx throgh vx in memory starting at location I.
+    /// store v vx throgh vx in memory starting at location I.
     fn ld_i_vx(&mut self, x: u8) {
         todo!("opcode Fx55");
     }
 
-    /// read registers v0 through vx from memory starting at location I.
+    /// read v v0 through vx from memory starting at location I.
     fn ld_vx_i(&mut self, x: u8) {
         todo!("opcode Fx65");
     }
