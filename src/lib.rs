@@ -1,3 +1,5 @@
+use rand::prelude::*;
+
 #[derive(Debug)]
 pub struct Chip8 {
     /// general purpose v (8-bit, x16)
@@ -95,11 +97,13 @@ impl Chip8 {
     }
 
     /// clear the display.
+    /// 0x00E0
     fn cls(&mut self) {
         todo!("opcode 00E0");
     }
 
     /// return from a subroutine.
+    /// opcode: 0x00EE
     fn ret(&mut self) {
         if self.sp == 0 {
             panic!("stack underflow");
@@ -156,8 +160,9 @@ impl Chip8 {
     }
 
     /// set Vx = Vx + kk
+    /// opcode: 7xkk
     fn add_vx_byte(&mut self, x: u8, byte: u8) {
-        todo!("opcode 7xkk");
+        self.v[x as usize] = self.v[x as usize].overflowing_add(byte).0;
     }
 
     /// set vx = vy
@@ -195,45 +200,63 @@ impl Chip8 {
     /// set vx = vx - vy, set vf = not borrow
     /// opcode: 8xy5
     fn sub(&mut self, x: u8, y: u8) {
-        let (v, flag) = self.v[x as usize].overflowing_sub(self.v[y as usize]);
-        self.v[x as usize] = v;
+        let x = x as usize;
+        let y = y as usize;
+        let (v, flag) = self.v[x].overflowing_sub(self.v[y]);
+        self.v[x] = v;
         // MEMO: 等しいときのフラグに誤り?
         self.v[0xf] = if flag { 0 } else { 1 };
     }
 
     /// set vx = vx shr 1
+    /// opcode: 8xy6
     fn shr(&mut self, x: u8) {
-        todo!("opcode 8xy6");
+        let x = x as usize;
+        self.v[0xf] = self.v[x] & 0x1;
+        self.v[x] >>= 1;
     }
 
     /// set vx = vy - vx, set vf = not borrow
+    /// opcode: 8xy7
     fn subn(&mut self, x: u8, y: u8) {
-        todo!("opcode 8xy7");
+        let x = x as usize;
+        let y = y as usize;
+        let (v, flag) = self.v[y].overflowing_sub(self.v[x]);
+        self.v[x] = v;
+        self.v[0xf] = if flag { 0 } else { 1 };
     }
 
     /// set vx = vx shl 1
+    /// opcode: 8xyE
     fn shl(&mut self, x: u8) {
-        todo!("opcode 8xyE");
+        let x = x as usize;
+        self.v[0xf] = (self.v[x] & 0x80) >> 7;
+        self.v[x] <<= 1;
     }
 
     /// skip next instrution if vx != vy
+    /// opcode: 9xy0
     fn sne_vx_vy(&mut self, x: u8, y: u8) {
-        todo!("opcode 9xy0");
+        if self.v[x as usize] != self.v[y as usize] {
+            self.pc += 2;
+        }
     }
 
     /// set I = nnn
+    /// opcode Annn
     fn ld_i_addr(&mut self, addr: u16) {
-        todo!("opcode Annn");
+        self.i = addr;
     }
 
     /// jump to location nnn + v0
     fn jp_v0_addr(&mut self, addr: u16) {
-        todo!("opecode Bnnn");
+        self.pc = addr.overflowing_add(self.v[0x0] as u16).0;
     }
 
     /// set vx = random byte and kk
+    /// opcode Cxkk
     fn rnd(&mut self, x: u8, byte: u8) {
-        todo!("opcode Cxkk");
+        self.v[x as usize] = random::<u8>() & byte;
     }
 
     /// display n-byte sprite starting at memory location I at (vx, vy)
@@ -274,7 +297,7 @@ impl Chip8 {
 
     /// set I = I + vx
     fn add_i_vx(&mut self, x: u8) {
-        todo!("opcode Fx1E");
+        self.i = self.i.overflowing_add(self.v[x as usize] as u16).0;
     }
 
     /// set I = location of sprite for digit vx
@@ -288,13 +311,31 @@ impl Chip8 {
     }
 
     /// store v vx throgh vx in memory starting at location I.
+    /// opcode Fx55
     fn ld_i_vx(&mut self, x: u8) {
-        todo!("opcode Fx55");
+        let x = x as usize;
+        let addr = self.i as usize;
+        if x + addr >= self.mem.len() {
+            panic!("wrong memory address");
+        }
+
+        for i in 0..x {
+            self.mem[addr + i] = self.v[x + i];
+        }
     }
 
     /// read v v0 through vx from memory starting at location I.
+    /// opcode Fx65
     fn ld_vx_i(&mut self, x: u8) {
-        todo!("opcode Fx65");
+        let x = x as usize;
+        let addr = self.i as usize;
+        if x + addr >= self.mem.len() {
+            panic!("wrong memory address");
+        }
+
+        for i in 0..x {
+            self.v[x + i] = self.mem[addr + i];
+        }
     }
 
     pub fn load_data(&mut self, addr: usize, data: &[u16]) -> Result<(), String> {
