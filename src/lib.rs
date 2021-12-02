@@ -1,5 +1,3 @@
-use std::ops::DivAssign;
-
 #[derive(Debug)]
 pub struct Chip8 {
     /// general purpose v (8-bit, x16)
@@ -103,7 +101,12 @@ impl Chip8 {
 
     /// return from a subroutine.
     fn ret(&mut self) {
-        todo!("opcode 00EE");
+        if self.sp == 0 {
+            panic!("stack underflow");
+        }
+
+        self.sp -= 1;
+        self.pc = self.stack[self.sp as usize];
     }
 
     /// jump to location nnn.
@@ -118,7 +121,7 @@ impl Chip8 {
         if self.sp as usize >= self.stack.len() {
             panic!("stack overflow");
         }
-        self.stack[self.sp as usize] = self.pc as u16;
+        self.stack[self.sp as usize] = self.pc;
         self.sp += 1;
         self.pc = addr;
     }
@@ -294,12 +297,17 @@ impl Chip8 {
         todo!("opcode Fx65");
     }
 
-    pub fn load_data(&mut self, data: &[u16]) {
+    pub fn load_data(&mut self, addr: usize, data: &[u16]) -> Result<(), String> {
+        if addr + data.len() >= self.mem.len() {
+            return Err(format!("data length is too long: {}", data.len()));
+        }
         let data: Vec<_> = data
             .iter()
             .map(|&x| [((x & 0xFF00) >> 8) as u8, (x & 0x00FF) as u8])
             .flatten()
             .collect();
-        self.mem[..data.len()].copy_from_slice(&data);
+        self.mem[addr..(addr + data.len())].copy_from_slice(&data);
+
+        Ok(())
     }
 }
