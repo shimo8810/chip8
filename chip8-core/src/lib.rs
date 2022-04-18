@@ -344,8 +344,7 @@ impl Chip8 {
         }
         let data: Vec<_> = data
             .iter()
-            .map(|&x| [((x & 0xFF00) >> 8) as u8, (x & 0x00FF) as u8])
-            .flatten()
+            .flat_map(|&x| [((x & 0xFF00) >> 8) as u8, (x & 0x00FF) as u8])
             .collect();
         self.mem[addr..(addr + data.len())].copy_from_slice(&data);
 
