@@ -2,5 +2,6 @@
 
 members = [
     "chip8-core",
-    "chip8-cli"
+    "chip8-cli",
+    "chip8-wasm"
 ]
