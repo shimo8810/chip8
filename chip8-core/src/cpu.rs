@@ -1,46 +1,9 @@
+use crate::display::Display;
+use crate::instruction::Instruction;
+
 const V_SIZE: usize = 16;
 const STACK_SIZE: usize = 16;
 const MEM_SIZE: usize = 4096;
-
-use crate::display::{self, Display};
-
-pub enum Instruction {
-    Cls,
-    Ret,
-    JpAddr(u16),
-    CallAddr(u16),
-    SeVxByte(usize, u8),
-    SneVxByte(usize, u8),
-    SeVxVy(usize, usize),
-    LdVxByte(usize, u8),
-    AddVxByte(usize, u8),
-    LdVxVy(usize, usize),
-    OrVxVy(usize, usize),
-    AndVxVy(usize, usize),
-    XorVxVy(usize, usize),
-    AddVxVy(usize, usize),
-    SubVxVy(usize, usize),
-    ShrVx(usize),
-    SubnVxVy(usize, usize),
-    ShlVx(usize),
-    SneVxVy(usize, usize),
-    LdIAddr(u16),
-    JpV0Addr(u16),
-    RndVxByte(usize, u8),
-    DrwVxVyNibble(usize, usize, u8),
-    SkpVx(usize),
-    SkpnVx(usize),
-    LdVxDt(usize),
-    LdVxK(usize),
-    LdDtVx(usize),
-    LdStVx(usize),
-    AddIVx(usize),
-    LdFVx(usize),
-    LdBVx(usize),
-    LdIVx(usize),
-    LdVxI(usize),
-    NOOP,
-}
 
 pub struct Cpu<D: Display> {
     /// general purpose v (8-bit, x16)
